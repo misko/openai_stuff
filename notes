@@ -1,0 +1,2 @@
+export MUJOCO_PY_MJKEY_PATH=/Users/miskodzamba/research/openai/mjpro131/bin/mjkey.txt 
+export MUJOCO_PY_MJPRO_PATH=/Users/miskodzamba/research/openai/mjpro131
