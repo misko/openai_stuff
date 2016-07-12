@@ -25,36 +25,62 @@ actions=np.zeros(env.action_space.shape) #env.action_space.n
 subspace=nactions/2
 #initialize the parameter distribution
 #meta_param = {'u':np.random.normal(0, 1, (observation.size*2+2)*actions),'o':np.ones((observation.size*2+2)*actions)}
-nparams1=(observation.size*2+nactions+1)*subspace
-nparams2=subspace*subspace
-nparams3=subspace*nactions
-print  "Using",nparams1,nparams2,nparams3,"params"
-meta_param = {'u':np.zeros(nparams1+nparams2+nparams3),'o':np.ones(nparams1+nparams2+nparams3)}
+layers=[]
+#layers.append({'in':observation.size*2+nactions+1,'out':subspace})
+layers.append({'in':observation.size+nactions+1,'out':subspace})
+layers.append({'in':subspace,'out':subspace})
+#layers.append({'in':subspace,'out':subspace})
+layers.append({'in':subspace,'out':subspace})
+layers.append({'in':subspace,'out':nactions})
+nparams=0
+for d in layers:
+	nparams+=d['in']*d['out']
+print("network",layers)
+
+#random on no diags
+covar = np.random.rand(nparams,nparams)-0.5
+covar = np.dot(covar,covar.transpose())
+covar = covar/covar.max()
+np.fill_diagonal(covar,0)
+#print(covar)
+#binary on non diags
+
+
+meta_param = {'u':np.zeros(nparams),'o':np.ones(nparams)}
 for bi in xrange(big_its):
 	#sample the parameter distribution
-	params = np.random.multivariate_normal(meta_param['u'], np.diag(meta_param['o']), small_its)
+	params = np.random.multivariate_normal(meta_param['u'], np.diag(meta_param['o']), small_its) # add random noise to covar? TODO
 	rewards = []
 	avg_score=0
 	#run for each small iteration
 	for i in xrange(small_its):
-		param1=params[i][:nparams1].reshape(nparams1/subspace,subspace)
-		param2=params[i][nparams1:nparams1+nparams2].reshape(subspace,subspace)
-		param3=params[i][nparams1+nparams2:].reshape(subspace,nactions)
+		param=[]
+		param_so_far=0
+		for d in layers:
+			param.append(params[i][param_so_far:param_so_far+d['in']*d['out']].reshape(d['in'],d['out']))
+			param_so_far+=d['in']*d['out']
 		reward=[]
 		reward_total=0
 		old_action = np.zeros(nactions)
 		old_observation = np.zeros(observation.size)
+		action_diffs=0
 		while True:
 			#action=np.dot(param[ii*(observation.size*2+2):(ii+1)*(observation.size*2+2)],np.hstack((1,old_action,old_observation,observation)))
-			inp=np.hstack((1,old_action,old_observation,observation))
+			#l=np.hstack((1,old_action,old_observation,observation))
+			l=np.hstack((1,old_action,observation))
+			for x in xrange(len(param)):
+				l=np.dot(l,param[x])
+				if x!=len(param)-1:
+					l=(l * (l>0)) # relu on all but last
 			#action=np.clip(np.maximum(0,np.dot(np.dot(inp,param1),param2)),-1,1)
-			l1=np.dot(inp,param1)
-			l2=np.dot((l1 * (l1>0)),param2) # relu with bias from layer 1?
-			l3=np.dot((l2 * (l2>0)),param3)
-			action=np.clip(l3,-1,1)
+			#l1=np.dot(inp,param1)
+			#l2=np.dot((l1 * (l1>0)),param2) # relu with bias from layer 1?
+			#l3=np.dot((l2 * (l2>0)),param3)
+			action=np.clip(l,-1,1)
+			action_diffs+=np.abs(action,old_action).sum()
 			old_action=action
 			old_observation=observation
-			observation, reward_f, done, _ = env.step(np.array([action]))
+			observation, reward_f, done, _ = env.step(action)
 			reward_total += reward_f
 			reward.append(reward_f)
 			if done:
@@ -63,7 +89,21 @@ for bi in xrange(big_its):
 		avg_score+=reward_total/float(small_its)
 		#rewards.append((reward_total,i))
 		#rewards.append((reward_total/(1+np.var(reward)),i))
-		rewards.append((reward_total*(1+np.var(reward)),i))
+
+		#more variance, doesnt stall the system?
+		#rewards.append((reward_total*(1+5*np.var(reward)),i)) 
+
+		action_diffs/=(nactions*len(reward))
+
+		#rewards at the end are better!!
+		rt=0
+		for x in xrange(len(reward)):
+			rt+=reward[x]*(0.5+float(x)/len(reward))
+		#rewards.append((rt,i))
+		#rewards.append((rt*(1+5*np.var(reward)),i)) 
+		#rewards.append((rt*(1+5*np.var(reward))-reward_total,i)) 
+		#rewards.append((rt*(1+5*np.var(reward)*(0.5+action_diffs/2))-reward_total,i)) 
+		rewards.append((rt*(1+5*action_diffs)-reward_total,i)) 
 		print reward_total,rewards[-1]
 	rewards.sort()
 	#update the parameter distribution
@@ -83,7 +123,7 @@ for bi in xrange(big_its):
 		softmax=True
 		if softmax: 
 			rewards=rewards[int(len(rewards)*(1-keep)):]
-			values=np.zeros((len(rewards),nparams1+nparams2+nparams3))
+			values=np.zeros((len(rewards),nparams))
 			weights=np.zeros(len(rewards))
 			j=0
 			for x,i in rewards:
@@ -91,6 +131,7 @@ for bi in xrange(big_its):
 				weights[j]=x-rewards[0][0]
 				values[j]=params[i]
 				j+=1
+			weights=np.clip(weights,0,10)
 			weights=weights/weights.sum()	
 			average = np.average(values,0, weights=weights)	
 			variance = np.average((values-average)**2,0, weights=weights) 
