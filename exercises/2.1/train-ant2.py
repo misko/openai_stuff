@@ -1,81 +1,72 @@
 import gym
 import numpy as np
 
-#env = gym.make('CartPole-v0')
-#env = gym.make('Acrobot-v0')
-#env = gym.make('MountainCar-v0')
 env = gym.make('Ant-v1')
-
 env.monitor.start('/tmp/Ant-experiment-1',force=True)
 
 #how many big iteration to do - big iteration is updating the means and variance
 big_its=500
 #how many small iterations to do for a fixed theta distribution
-small_its=100
-#what fraction of results (sorted by score) to keep
-keep=0.2
+small_its=30
+#what fracion of results (sorted by score) to keep
+keep=0.5
+
 #run this then sample then fit the best 20% and re-do-it
 observation = env.reset()
-print(env.action_space)
-print(env.action_space.high)
-print(env.action_space.low)
 nactions=env.action_space.shape[0]
-actions=np.zeros(env.action_space.shape) #env.action_space.n 
+subspace=nactions
 
-subspace=nactions/2
 #initialize the parameter distribution
-#meta_param = {'u':np.random.normal(0, 1, (observation.size*2+2)*actions),'o':np.ones((observation.size*2+2)*actions)}
-nparams1=(observation.size*2+1)*subspace
-nparams2=(subspace+nactions)*nactions
-print  "Using",nparams1,nparams2,"params"
-meta_param = {'u':np.zeros(nparams1+nparams2),'o':np.ones(nparams1+nparams2)}
+layers=[]
+layers.append({'in':observation.size,'out':subspace*4})
+layers.append({'in':subspace*4,'out':subspace})
+layers.append({'in':subspace,'out':nactions})
+
+#initialize the network
+for d in layers:
+	d['u']=np.zeros(d['in']*d['out'])
+	d['o']=np.ones(d['in']*d['out'])
+
 for bi in xrange(big_its):
-	#sample the parameter distribution
-	params = np.random.multivariate_normal(meta_param['u'], np.diag(meta_param['o']), small_its)
+	#sample the parameters for ech layer
+	for d in layers:
+		d['params'] = np.random.multivariate_normal(d['u'], np.diag(d['o']), small_its).reshape(small_its,d['in'],d['out']) 
 	rewards = []
 	avg_score=0
 	#run for each small iteration
 	for i in xrange(small_its):
-		param1=params[i][:nparams1].reshape(nparams1/subspace,subspace)
-		param2=params[i][nparams1:].reshape(subspace+nactions,nactions)
+		reward=[]
 		reward_total=0
 		old_action = np.zeros(nactions)
-		old_observation = np.zeros(observation.size)
 		while True:
-			#action=np.dot(param[ii*(observation.size*2+2):(ii+1)*(observation.size*2+2)],np.hstack((1,old_action,old_observation,observation)))
-			inp=np.hstack((1,old_observation,observation))
-			#action=np.clip(np.maximum(0,np.dot(np.dot(inp,param1),param2)),-1,1)
-			l1=np.dot(inp,param1)
-			l2=np.dot(np.hstack((old_action,(l1 * (l1>0)))),param2) # relu with bias from layer 1?
-			action=np.clip(l2,-1,1)
-			old_action=action
-			old_observation=observation
-			observation, reward, done, _ = env.step(np.array([action]))
-			reward_total += reward
-			if done:
-			    break
-		observation = env.reset()
-		avg_score+=reward_total/float(small_its)
-		rewards.append((reward_total,i))
+			l=observation
+			for d in layers:
+				l=np.dot(l,d['params'][i])
+				#l=(l * (l>0)) # ReLU
+				l=np.tanh(l) # sigmoid
+				#l=np.sin(l) # wtf??
+			action=np.clip(l,-1,1) # clip the output values to make sure its in the range
+			old_action=action # save the old action as input to next step
+			observation, reward_f, done, _ = env.step(action) # do a step in openAI
+			reward.append(reward_f) # keep track of the reward for each step
+			if done: # if the simulation is done - out of bounds, or out of time
+			    observation = env.reset() # reset to a new training episode
+			    break # while true doesnt break easy...
+		avg_score+=sum(reward)/float(small_its) # the average score per episode
+		rewards.append((reward_total,i)) # put the score and which example it was into a list
+	#sort the list by the score, so that the best ones are at the end
 	rewards.sort()
-	#update the parameter distribution
-	if rewards[0][0]==rewards[-1][0]:
-		print "uhhh ohhh"
-		#small_its=int(1.5*small_its)
-		#meta_param = {'u':np.random.normal(0, 1, (observation.size*2+2)*actions),'o':np.ones((observation.size*2+2)*actions)}
-		#elif rewards[0][0]==rewards[int(len(rewards)*(1-keep/2))][0]:
-		meta_param['o']=meta_param['o']*1.1
-	elif rewards[0][0]==rewards[-2][0]:
-		#small_its=int(small_its*1.5)
-		#meta_param = {'u':np.random.normal(0, 1, (observation.size*2+2)*actions),'o':np.ones((observation.size*2+2)*actions)}
-		print "TOO SMALL SMAPLING"
-		meta_param['o']=meta_param['o']*1.1
-	else:
-		tops=np.vstack([ params[i] for x,i in rewards[int(len(rewards)*(1-keep)):] if x!=rewards[0][0]])
-		print bi,i,"SIZE of tops",tops.size
-		#print(tops.mean(0))
-		meta_param['u']=meta_param['u']*0.5+0.5*tops.mean(0)
-		meta_param['o']=meta_param['o']*0.5+0.5*tops.var(0)
-	print(avg_score)
-	#print(meta_param)
+	#Only keep the 'elite' fraction
+	rewards=rewards[int(len(rewards)*(1-keep)):]
+	#update each layers distribution
+	var_sum=[]
+	for d in layers:
+		values=np.zeros((len(rewards),d['in'],d['out']))
+		weights=np.zeros(len(rewards))
+		average = np.average(values,0).flatten()
+		variance = np.var(values,0).flatten()
+		d['u']=d['u']*0.5+0.5*average
+		d['o']=d['o']*0.5+0.5*variance
+		var_sum.append(d['o'].sum())
+	print "Doing update - AvgScore",avg_score,"VarSum",var_sum
 env.monitor.close()
