@@ -61,10 +61,8 @@ for bi in xrange(big_its):
 	#update each layers distribution
 	var_sum=[]
 	for d in layers:
-		values=np.zeros((len(rewards),d['in'],d['out']))
-		weights=np.zeros(len(rewards))
-		average = np.average(values,0).flatten()
-		variance = np.var(values,0).flatten()
+		average = np.average(d['params'],0).flatten()
+		variance = np.var(d['params'],0).flatten()
 		d['u']=d['u']*0.5+0.5*average
 		d['o']=d['o']*0.5+0.5*variance
 		var_sum.append(d['o'].sum())
