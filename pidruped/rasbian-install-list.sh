@@ -2,7 +2,7 @@
 sudo vim /etc/network/interfaces
 
 ### Packages
-sudo apt-get install vim
+sudo apt-get install vim tmux
 sudo apt-get install git
 sudo apt-get install python-pip python-dev
 sudo apt-get install libblas-dev liblapack-dev libatlas-base-dev gfortran
@@ -26,7 +26,12 @@ git clone https://github.com/pimoroni/adxl345-python
 
 ### Python packages
 sudo pip install numpy
-pip install scipy
-pip install sklearn
-pip install gym
-pip install tensorflow
+sudo pip install scipy
+sudo pip install sklearn
+sudo apt-get install libhdf5-dev
+sudo pip install h5py
+sudo pip install gym
+
+### TensorFlow, https://github.com/samjabrahams/tensorflow-on-raspberry-pi
+wget https://github.com/samjabrahams/tensorflow-on-raspberry-pi/raw/master/bin/tensorflow-0.9.0-cp27-none-linux_armv7l.whl
+sudo pip install tensorflow-0.9.0-cp27-none-linux_armv7l.whl
