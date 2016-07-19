@@ -7,7 +7,14 @@ module hornbracket(hr_st,hh,hrd,hr1,hr2) {
 	height=3;
 	//horn bracket
 	translate([hr_st-1,0,0]) difference(){
+		union() {
 		translate([-1+0.01,22,-3]) rotate([55,0,0]) cube([5.5,15,hh+18]);
+		
+		difference() {
+			translate([-1,15,1]) rotate([0,90,0]) cylinder(r=hr2+5,h=5.5,$fn=100);
+			translate([-1.05,-5.2,-9.5]) rotate([0,90,0]) cylinder(r=hr2+19,h=5.6,$fn=100);
+		}
+		}
 		//make flat side 
 		translate([-2-0.1,21.5,-3]) cube([6.5+0.2,hh,hh]);
 		//servo horn hole
