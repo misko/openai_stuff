@@ -4,29 +4,32 @@
 translate([0,0,19.5]) rotate([0,-90,0]) shoulder(27,7,4,2.5,15);
 
 module hornbracket(hr_st,hh,hrd,hr1,hr2) {
+	height=3;
 	//horn bracket
-	translate([hr_st,0,0]) difference(){
-		union(){
-			translate([0,22,-3]) rotate([55,0,0]) cube([5,15,hh+18]);
-			//vert wall
-			//translate([hr_st-4,-8,0]) cube([9,31.5,hh+.35+8]);
-			//round top
-			//translate([hr_st,0,hh+.35]) rotate([0,90,0]) cylinder(r=8, h=5, $fn=100);
-			
-		}
-		translate([10,19.5,-5]) rotate([0,0,90]) cube([15,16,hh+15]);
+	translate([hr_st-1,0,0]) difference(){
+		translate([-1+0.01,22,-3]) rotate([55,0,0]) cube([5.5,15,hh+18]);
+		//make flat side 
+		translate([-2-0.1,21.5,-3]) cube([6.5+0.2,hh,hh]);
 		//servo horn hole
 		translate([0,0,hh]) rotate([0,90,0]) cylinder(r=hr1,h=6,$fn=100);
 		//servo horn channel
-		translate([-1,0,hh]) rotate([55,0,0]) hull(){	
-			//top channel
-			translate([-2,-3.5,0]) cube([5,7,9]);
-			//large round
-			translate([0,0,0]) rotate([0,90,0]) cylinder(r=hr1,h=3,$fn=100);	
-			//small round
-			translate([0,0,-hrd]) rotate([0,90,0]) cylinder(r=hr2,h=3,$fn=100);
+		/*translate([-1,0,hh]) rotate([55,0,0]) union() {
+			hull(){	
+				translate([0,0,0]) rotate([0,90,0]) cylinder(r=hr1,h=height,$fn=100);	
+				translate([0,0,-hrd]) rotate([0,90,0]) cylinder(r=hr2,h=height,$fn=100);
+			}
+			translate([0,-hr1,0]) cube([height,hr1*2,9]);
+		}*/
+			translate([-1,0,hh]) rotate([55,0,0]) difference() {
+				union() {
+					hull(){	
+						translate([0,0,0]) rotate([0,90,0]) cylinder(r=hr1,h=height,$fn=100);	
+					translate([0,0,-hrd]) rotate([0,90,0]) cylinder(r=hr2,h=height,$fn=100);	
+					}
+					translate([0,-hr1,0]) cube([height,hr1*2,9]); //top square
+				}
+			translate([-0.1,-hr1-0.1,-hrd-hr2]) cube([1,hr1*2+0.2,hr2*2]); //subtract the tip clip
 		}
-		
 	}
 }
 
@@ -75,8 +78,8 @@ module shoulder(st,sc,hr1,hr2,hrd){
 			union() {
 				hornbracket(hr_st,hh,hrd,hr1,hr2);
 				rotate([0,180,90]) hornbracket(hr_st,hh,hrd,hr1,hr2);
-				translate([-19.5,9.5+5,2.5]) rotate([0,90,0]) cube([10,5,5]);
-			
+				//translate([-19.5,9.5+5,2.5]) rotate([0,90,0]) cube([10,5,5]);
+				translate([-21.5,9.5+6.5,-7.5]) cube([5.5,5.5,10]);
 				
 				//translate([-23.5,20,-23.5]) rotate([90,0,0]) cylinder(r=5,h=80,$fn=100);
 			}
