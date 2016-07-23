@@ -1,5 +1,11 @@
 ### Set up wifi
-sudo vim /etc/network/interfaces
+sudo vim /etc/wpa_supplicant/wpa_supplicant.conf
+# add wifi settings per network:
+network={
+    ssid="HOME NETWORK NAME"
+    psk="HOME PASSWORD"
+    id_str="home"
+}
 
 ### Packages
 sudo apt-get install vim tmux
