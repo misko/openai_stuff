@@ -9,7 +9,7 @@ big_its=500
 #how many small iterations to do for a fixed theta distribution
 small_its=30
 #what fracion of results (sorted by score) to keep
-keep=int(small_its*0.5)
+keep=int(small_its*0.2)
 
 #run this then sample then fit the best 20% and re-do-it
 observation = env.reset()
@@ -102,7 +102,7 @@ for bi in xrange(big_its):
 
 	vs=[]
 	ms=[]
-	fancy_update=1
+	fancy_update=0
 	if fancy_update==1:
 		rewards=rewards[int(len(rewards)*(1-keep)):]
 		weights=np.zeros(len(rewards))
